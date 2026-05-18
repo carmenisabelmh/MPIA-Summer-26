@@ -1,0 +1,9 @@
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+.vscode
+*.csv
+*.fits
+
+2025-05-01-nirspec-merged-table-v4.ipynb
+*png
