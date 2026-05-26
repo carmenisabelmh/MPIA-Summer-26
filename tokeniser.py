@@ -5,8 +5,8 @@ from SpecML import D_emb
 
 #------------------------------------------CONFIGURATION/DATA SETUP----------------------------------------------------#
 
-# Parameters 
-patch_size = 20 #
+# Parameters
+patch_size = 20 
 overlap = 10
 step_size = patch_size - overlap 
 
