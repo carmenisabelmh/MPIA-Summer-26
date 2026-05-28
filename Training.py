@@ -15,7 +15,7 @@ WEIGHT_DECAY = 0.01  # AdamW weight decay
 BETAS = (0.9, 0.95)  # AdamW β₁, β₂
 GRAD_CLIP = 1.0  # gradient clip max norm
 SCHED_ETA_MIN = 1e-6  # minimum LR after annealing
-NUM_RESTARTS = 1  # number of annealing cycles
+NUM_RESTARTS = 2  # number of annealing cycles
 N_STEPS = N_STEPS_PER_RESTART * NUM_RESTARTS
 
 
