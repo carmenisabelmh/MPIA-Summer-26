@@ -3,11 +3,12 @@ import torch.nn.functional as F
 
 
 #------------------------------------------HYPER PARAMETERS----------------------------------------------------#
-
+#these will change the size of the model
 D_emb = 64 #Embedding Dimension 
 n_heads = 4 #The number of parallel attentions you do at the same time 
 n_layers = 4  #The number of times a block is stacked, each time different weights will be learnt 
 ffn_dim = 4 * D_emb #Dimension of Feed Forward Network, FFN is how the vectors communicate within the vectors 
+
 #------------------------------------------ATTENTION----------------------------------------------------#
 
 class SpectralAttention(nn.Module):
@@ -50,7 +51,7 @@ class SpectralBlock(nn.Module):
         self.ln1 = nn.LayerNorm(d) #Layer norm twice for individual trained parameters that learn differently in each LN to be applied to different sections
         self.attn = SpectralAttention(d, h)
         self.ln2 = nn.LayerNorm(d) 
-        self.ffn = nn.Sequential(nn.Linear(d, ff), nn.GELU(), nn.Linear(ff, d)) #Feed Forward Network, GELU more suited for Transformer Architecture
+        self.ffn = nn.Seuential(nn.Linear(d, ff), nn.GELU(), nn.Linear(ff, d)) #Feed Forward Network, GELU more suited for Transformer Architecture
     def forward(self, x, validity): #Call spectral block, will then call the forward and it will add the attn from ln1 only with valid tokens to x and also apply the ffn to x
         x = x + self.attn(self.ln1(x), validity) 
         x = x + self.ffn(self.ln2(x)) 
