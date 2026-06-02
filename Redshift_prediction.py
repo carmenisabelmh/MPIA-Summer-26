@@ -27,7 +27,7 @@ if torch.backends.mps.is_available():
 
 model = SpecML(patch_dim=patch_size + 2).to(device)
 model.load_state_dict(
-    torch.load('SpecML 20260602 n20000 lr5e-4 4r 10PS 3OL.pt', map_location=device, weights_only=True)
+    torch.load('SpecML 20260602 n20000 lr5e-4 4r 10PS 4OL.pt', map_location=device, weights_only=True)
 )
 model.eval()
 
