@@ -66,6 +66,21 @@ def mse_loss(Y, Yhat, M):
 
 
 #-------------------------------------------------TRAINING-----------------------------------------------------------#
+class WarmupCosineScheduler(torch.optim.lr_scheduler._LRScheduler):
+    def __init__(self, optimizer, warmup_steps, T_0, eta_min=0, last_epoch=-1):
+        self.warmup_steps = warmup_steps
+        self.T_0 = T_0
+        self.eta_min = eta_min
+        super().__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        if self.last_epoch < self.warmup_steps:
+            return [base_lr * self.last_epoch / max(1, self.warmup_steps)
+                    for base_lr in self.base_lrs]
+        progress = (self.last_epoch - self.warmup_steps) / max(1, self.T_0 - self.warmup_steps)
+        cosine = 0.5 * (1 + np.cos(np.pi * (progress % 1.0)))
+        return [self.eta_min + (base_lr - self.eta_min) * cosine
+                for base_lr in self.base_lrs]
 
 if __name__ == '__main__':
     device = 'cpu'
@@ -83,8 +98,8 @@ if __name__ == '__main__':
 
     model = SpecML(patch_dim=patch_size + 2).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY, betas=BETAS)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, T_0=N_STEPS_PER_RESTART, eta_min=SCHED_ETA_MIN)
-
+    WARMUP_STEPS = 2000
+    scheduler = WarmupCosineScheduler(opt, warmup_steps=WARMUP_STEPS, T_0=N_STEPS_PER_RESTART, eta_min=SCHED_ETA_MIN)
     # Set random seed
     rng = torch.Generator(device=device)
     rng.manual_seed(0)
