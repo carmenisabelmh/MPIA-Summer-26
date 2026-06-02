@@ -87,7 +87,7 @@ def train_trial(trial, device):
     # ------ Retokenise for this trial's patch_size / overlap ------
     from numpy.lib.stride_tricks import sliding_window_view
     from astropy.table import Table
-    from Tokeniser import data, valid_s, valid_w, w, f, f_norm, dq
+    from Tokeniser import data, valid_spectrum, valid_w, w, f, f_norm, dq
 
     x_t  = sliding_window_view(f_norm, patch_s, axis=1)[:, ::step_s]
     X    = np.concatenate([np.nanmean(x_t, axis=2, keepdims=True),
