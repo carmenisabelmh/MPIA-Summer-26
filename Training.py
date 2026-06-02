@@ -78,7 +78,7 @@ if __name__ == '__main__':
     # Entire dataset fits in memory — pin Y and V on device permanently.
     # P is (T, D_EMB) — shared across all spectra; kept on device, not batched.
     N = X.shape[0]
-    Y_dev = torch.from_numpy(Y).float().to(device)
+    Y_dev = torch.from_numpy(X).float().to(device)
     V_dev = torch.from_numpy(V).bool().to(device)
     P_dev = torch.from_numpy(P).float().to(device)
 
