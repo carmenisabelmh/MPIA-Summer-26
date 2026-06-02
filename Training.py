@@ -11,7 +11,7 @@ import torch.nn as nn
 start_time = time.time()
 #------------------------------------------TRAINING PARAMETERS----------------------------------------------------#
 
-N_STEPS_PER_RESTART = 40000  # gradient steps
+N_STEPS_PER_RESTART = 100000  # gradient steps
 BATCH_SIZE = 64  # spectra per batch
 LR = 5e-4  # AdamW learning rate
 WEIGHT_DECAY = 0.01  # AdamW weight decay
