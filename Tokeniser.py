@@ -7,7 +7,7 @@ from SpecML import D_emb
 
 # Parameters
 patch_size = 20
-overlap = 8
+overlap = 10
 step_size = patch_size - overlap 
 
 
