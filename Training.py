@@ -1,8 +1,9 @@
 import numpy as np
 import torch
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint
-from torch.utils.data import TensorDataset, DataLoader
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from pytorch_lightning.loggers import CSVLogger
+from torch.utils.data import TensorDataset, DataLoader, random_split
 
 from SpecML import SpecML
 from Tokeniser import patch_size, step_size, P, V, X
@@ -23,6 +24,7 @@ SCHED_ETA_MIN = 1e-6  # minimum LR after annealing
 NUM_RESTARTS = 8  # number of annealing cycles
 WARMUP_STEPS = 2000
 N_STEPS = N_STEPS_PER_RESTART * NUM_RESTARTS
+TRAIN_VAL_SPLIT = 0.9  # fraction of data used for training
 
 #-------------------------------------------------MASKING-----------------------------------------------------------#
 
@@ -104,6 +106,14 @@ class SpecMLLit(pl.LightningModule):
         self.log('train_loss', loss, on_step=True, prog_bar=True)
         return loss
 
+    def validation_step(self, batch, batch_idx):
+        y_b, v_b = batch
+        x_b, m_b = apply_chunk_mask_batch(y_b, v_b)
+        Yhat = self.model(x_b, v_b, self.P)
+        loss = mse_loss(y_b, Yhat, m_b)
+        self.log('val_loss', loss, on_epoch=True, prog_bar=True)
+        return loss
+
     def configure_optimizers(self):
         opt = torch.optim.AdamW(
             self.model.parameters(), lr=LR,
@@ -126,29 +136,41 @@ if __name__ == '__main__':
         torch.from_numpy(X).float(),
         torch.from_numpy(V).bool(),
     )
-    loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
+    n_train = int(len(dataset) * TRAIN_VAL_SPLIT)
+    n_val = len(dataset) - n_train
+    train_ds, val_ds = random_split(dataset, [n_train, n_val], generator=torch.Generator().manual_seed(0))
+    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
     lit_model = SpecMLLit(patch_dim=patch_size + 2, P_enc=P)
 
     checkpoint_cb = ModelCheckpoint(
         dirpath='checkpoints/',
-        filename='specml-step{step}-loss{train_loss:.4f}',
+        filename='specml-step{step}-val{val_loss:.4f}',
         every_n_train_steps=N_STEPS_PER_RESTART,  # save at the end of each annealing restart
         save_top_k=3,
-        monitor='train_loss',
+        monitor='val_loss',
         mode='min',
         save_last=True,  # always keep checkpoints/last.ckpt
     )
+    early_stop_cb = EarlyStopping(
+        monitor='val_loss',
+        patience=NUM_RESTARTS // 2,  # stop if val loss stagnates for half the restart cycles
+        mode='min',
+    )
+
+    logger = CSVLogger(save_dir='outputs/', name='specml')
 
     trainer = pl.Trainer(
         max_steps=N_STEPS,
         gradient_clip_val=GRAD_CLIP,
-        callbacks=[checkpoint_cb],
+        callbacks=[checkpoint_cb, early_stop_cb],
         log_every_n_steps=10,
+        logger=logger,
     )
 
     # To resume from a checkpoint, pass: ckpt_path='checkpoints/last.ckpt'
-    trainer.fit(lit_model, loader)
+    trainer.fit(lit_model, train_loader, val_loader)
 
     # Save final weights in original flat format
     torch.save(lit_model.model.state_dict(), 'SpecML.pt')

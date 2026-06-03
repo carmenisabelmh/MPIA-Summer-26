@@ -8,7 +8,8 @@ from SpecML import D_emb
 # Parameters
 patch_size = 4
 overlap = 2
-step_size = patch_size - overlap 
+step_size = patch_size - overlap
+MIN_STD = 0.0  # filter spectra whose flux std <= this (removes near-flat/constant spectra)
 
 
 #Load 4.5 Data, use Cache = True to store on memory/RAM or locally after data is read for first time
@@ -30,7 +31,12 @@ f = data['flux'][np.ix_(valid_w, valid_spectrum)].T / (w**2) #Converts Flux valu
 
 # scale = np.nanmedian(np.abs(f), axis=1, keepdims=True).clip(1e-30) #identifies a scale of the median flux values
 # f_norm = np.arcsinh(f / scale) #normalises the flux values using the scale previously defined and an arcsin
-f_norm = (f -  np.mean(f,keepdims=True,axis=1)) / np.std(f,keepdims=True,axis=1)
+spec_std = np.std(f, axis=1)  # (B,) per-spectrum std before normalisation
+valid_spectra = spec_std > MIN_STD
+f = f[valid_spectra]
+dq = dq[valid_spectra]
+
+f_norm = (f - np.mean(f, keepdims=True, axis=1)) / np.std(f, keepdims=True, axis=1)
 
 # Data Quality validity — (B, L): True where the detector pixel is good, set up for later validity masking, assesses if a pixel/data point is valid using the valid column of the data file
 dq = data['valid'][np.ix_(valid_w, valid_spectrum)].T  # (B, L)

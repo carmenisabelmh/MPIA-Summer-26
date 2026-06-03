@@ -5,10 +5,11 @@ import torch.nn.functional as F
 
 #------------------------------------------HYPER PARAMETERS----------------------------------------------------#
 #these will change the size of the model
-D_emb = 256 #Embedding Dimension 
-n_heads = 8 #The number of parallel attentions you do at the same time 
-n_layers = 4  #The number of times a block is stacked, each time different weights will be learnt 
-ffn_dim = 4 * D_emb #Dimension of Feed Forward Network, FFN is how the vectors communicate within the vectors 
+D_emb = 256 #Embedding Dimension
+n_heads = 8 #The number of parallel attentions you do at the same time
+n_layers = 4  #The number of times a block is stacked, each time different weights will be learnt
+ffn_dim = 4 * D_emb #Dimension of Feed Forward Network, FFN is how the vectors communicate within the vectors
+DROPOUT = 0.0  # dropout probability applied after attention and FFN residuals
 
 #------------------------------------------ATTENTION----------------------------------------------------#
 
@@ -47,27 +48,29 @@ class SpectralAttention(nn.Module):
 #------------------------------------------SPECTRAL TRANSFORMER BLOCK----------------------------------------------------#
 
 class SpectralBlock(nn.Module):
-    def __init__(self, d, h, ff):
+    def __init__(self, d, h, ff, dropout=0.0):
         super().__init__()
         self.ln1 = nn.LayerNorm(d) #Layer norm twice for individual trained parameters that learn differently in each LN to be applied to different sections
         self.attn = SpectralAttention(d, h)
-        self.ln2 = nn.LayerNorm(d) 
+        self.ln2 = nn.LayerNorm(d)
         self.ffn = nn.Sequential(nn.Linear(d, ff), nn.GELU(), nn.Linear(ff, d)) #Feed Forward Network, GELU more suited for Transformer Architecture
+        self.drop = nn.Dropout(dropout)
+
     def forward(self, x, validity): #Call spectral block, will then call the forward and it will add the attn from ln1 only with valid tokens to x and also apply the ffn to x
-        x = x + self.attn(self.ln1(x), validity) 
-        x = x + self.ffn(self.ln2(x)) 
+        x = x + self.drop(self.attn(self.ln1(x), validity))
+        x = x + self.drop(self.ffn(self.ln2(x)))
         return x
 
 
 
 #------------------------------------------THE MODEL: SpecML----------------------------------------------------#
 
-class SpecML(nn.Module): 
-    def __init__(self, patch_dim, d = D_emb, h = n_heads, n_layers = n_layers, ff = ffn_dim): #avengers assemble
-        super().__init__() 
+class SpecML(nn.Module):
+    def __init__(self, patch_dim, d=D_emb, h=n_heads, n_layers=n_layers, ff=ffn_dim, dropout=DROPOUT): #avengers assemble
+        super().__init__()
         self.embed = nn.Linear(patch_dim, d) #takes in dimensions from patch_dim and gives something with dimensions d_emb
         nn.init.trunc_normal_(self.embed.weight, mean=0.0, std=1 / d, a=-3 / d, b=3 / d)
-        self.blocks = nn.ModuleList([SpectralBlock(d, h, ff) for _ in range(n_layers)]) #.blocks is a list of n_layer spectral blocks 
+        self.blocks = nn.ModuleList([SpectralBlock(d, h, ff, dropout) for _ in range(n_layers)]) #.blocks is a list of n_layer spectral blocks
         self.norm = nn.LayerNorm(d) #normalises all the vectors in that matrix to ensure everything is in the same range
         self.head = nn.Linear(d, patch_dim) #this is the decoder
 
