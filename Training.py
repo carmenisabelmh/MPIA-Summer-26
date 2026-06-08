@@ -155,14 +155,14 @@ if __name__ == '__main__':
     )
     early_stop_cb = EarlyStopping(
         monitor='val_loss',
-        patience=NUM_RESTARTS // 2,  # stop if val loss stagnates for half the restart cycles
+        patience=50,  # high patience for self-supervised training where loss oscillates with cosine restarts
         mode='min',
     )
 
     logger = CSVLogger(save_dir='outputs/', name='specml')
 
     trainer = pl.Trainer(
-        max_steps=N_STEPS,
+        max_epochs=400,
         gradient_clip_val=GRAD_CLIP,
         callbacks=[checkpoint_cb, early_stop_cb],
         log_every_n_steps=10,
