@@ -6,7 +6,7 @@ from pytorch_lightning.loggers import CSVLogger
 from torch.utils.data import TensorDataset, DataLoader, random_split
 
 from SpecML import SpecML
-from Tokeniser import patch_size, step_size, P, V, X
+from Tokeniser import patch_size, overlap, step_size, P, V, X
 import time
 import torch.nn as nn
 
@@ -92,9 +92,9 @@ class WarmupCosineScheduler(torch.optim.lr_scheduler._LRScheduler):
 #-------------------------------------------------LIGHTNING MODULE-----------------------------------------------------------#
 
 class SpecMLLit(pl.LightningModule):
-    def __init__(self, patch_dim, P_enc: np.ndarray):
+    def __init__(self, patch_dim, P_enc: np.ndarray, patch_size=None, overlap=None):
         super().__init__()
-        self.model = SpecML(patch_dim=patch_dim)
+        self.model = SpecML(patch_dim=patch_dim, patch_size=patch_size, overlap=overlap)
         # Register P as a buffer so it moves to the correct device automatically
         self.register_buffer('P', torch.from_numpy(P_enc).float())
 
@@ -142,7 +142,7 @@ if __name__ == '__main__':
     train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
-    lit_model = SpecMLLit(patch_dim=patch_size + 2, P_enc=P)
+    lit_model = SpecMLLit(patch_dim=patch_size + 2, P_enc=P, patch_size=patch_size, overlap=overlap)
 
     checkpoint_cb = ModelCheckpoint(
         dirpath='checkpoints/',
@@ -155,7 +155,7 @@ if __name__ == '__main__':
     )
     early_stop_cb = EarlyStopping(
         monitor='val_loss',
-        patience=50,  # high patience for self-supervised training where loss oscillates with cosine restarts
+        patience=200,  # high patience for self-supervised training where loss oscillates with cosine restarts
         mode='min',
     )
 

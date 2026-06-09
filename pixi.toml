@@ -24,5 +24,6 @@ pytorch-gpu = ">=2.10.0,<3"
 
 [pypi-dependencies]
 pytorch-lightning = ">=2.6.5, <3"
+ipympl = ">=0.10.0, <0.11"
 
 

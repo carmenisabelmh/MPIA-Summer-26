@@ -90,4 +90,47 @@ P[:, 1::2] = np.cos(product)
 # # lam = np.append(w, w[-1] + np.arange(1, pad_length+1)*(w[-1] - w[-2])) #this linearly extrapolates wavelength values at the end of the array to meet the required pad_length
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Standalone tokeniser — use this in downstream scripts instead of the globals
+# above so you get the right X/V/P for whatever model you actually loaded.
+#
+# Usage:
+#   from SpecML import load_specml
+#   from Tokeniser import f, dq, w, tokenize
+#   model, cfg = load_specml('my_model.pt')
+#   X, V, P = tokenize(f_norm, dq, w, cfg['patch_size'], cfg['overlap'], cfg['D_emb'])
+# ─────────────────────────────────────────────────────────────────────────────
+
+def tokenize(f_norm, dq, w, patch_size, overlap, d_emb):
+    """
+    Patchify normalised flux and build the wavelength positional encoding.
+
+    f_norm  : (B, L) float array — already z-score normalised per spectrum
+    dq      : (B, L) bool  array — per-pixel data-quality mask (True = good)
+    w       : (L,)   float array — wavelength grid (μm)
+    Returns X (B,T,P+2), V (B,T), P_enc (T,D_emb)
+    """
+    step  = patch_size - overlap
+    x_t   = sliding_window_view(f_norm, patch_size, axis=1)[:, ::step]
+    X_out = np.concatenate([
+        np.nanmean(x_t, axis=2, keepdims=True),
+        np.nanstd( x_t, axis=2, keepdims=True),
+        x_t,
+    ], axis=2).astype(np.float32)
+
+    dq_p  = sliding_window_view(dq, patch_size, axis=1)[:, ::step]
+    V_out = dq_p.all(axis=2)
+    X_out[~V_out] = 0.0
+
+    T       = X_out.shape[1]
+    w_pat   = sliding_window_view(w, patch_size)[::step].mean(axis=1)[:T]
+    omegas  = 10000 ** (-2 * np.arange(d_emb // 2) / d_emb)
+    product = np.outer(w_pat * 1e4, omegas)
+    P_out   = np.empty((T, d_emb), dtype=np.float32)
+    P_out[:, 0::2] = np.sin(product)
+    P_out[:, 1::2] = np.cos(product)
+
+    return X_out, V_out, P_out
+
+
 

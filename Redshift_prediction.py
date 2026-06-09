@@ -5,34 +5,32 @@ import torch.nn as nn
 import torch.nn.functional as F
 from astropy.table import Table
 
-from SpecML import D_emb, SpecML
-from Tokeniser import patch_size, P, V, X, valid_spectrum
+from SpecML import load_specml
+from Tokeniser import f, dq, w, valid_spectrum, valid_spectra, tokenize
 
-# ---- Load catalog and align to valid spectra ---------------------------------
+# ---- Load model (params come from the checkpoint itself) --------------------
+model_file = 'SpecML 20260602 n20000 lr5e-4 4r 10PS 4OL.pt'
+
+device = ('cuda' if torch.cuda.is_available() else
+          'mps'  if torch.backends.mps.is_available() else 'cpu')
+
+model, cfg = load_specml(model_file, device=device)
+
+# ---- Tokenise with the patch params the model was actually trained with -----
+f_norm = (f - np.mean(f, axis=1, keepdims=True)) / np.std(f, axis=1, keepdims=True).clip(1e-10)
+X, V, P = tokenize(f_norm, dq, w, cfg['patch_size'], cfg['overlap'], cfg['D_emb'])
+
+# ---- Load catalog and align to valid spectra --------------------------------
 catalog = Table.read('dja_msaexp_emission_lines_v4.5.csv.gz', format='ascii')
 catalog = catalog[catalog['grating'] == 'PRISM']
-catalog = catalog[valid_spectrum]
+catalog = catalog[valid_spectrum][valid_spectra]
 
 mask_g3 = np.array(
     (np.array(catalog['grade'].filled(0)) == 3) & (np.array(catalog['z_best']) >= 0)
 )
 z_g3 = torch.from_numpy(np.array(catalog['z_best'][mask_g3], dtype=np.float32))
 
-# ---- Encode grade-3 spectra with frozen model --------------------------------
-device = 'cpu'
-if torch.cuda.is_available():
-    device = 'cuda'
-if torch.backends.mps.is_available():
-    device = 'mps'
-
-patch_size = 10
-model_file = 'SpecML 20260602 n20000 lr5e-4 4r 10PS 4OL.pt'
-#hardcode patch size to match from file because one in tokensier wont match, will have to hardcode demb as well
-
-model = SpecML(patch_dim = patch_size + 2).to(device)
-model.load_state_dict(torch.load('SpecML 20260602 n20000 lr5e-4 4r 10PS 4OL.pt', map_location=device, weights_only=True))
-model.eval()
-
+# ---- Encode grade-3 spectra -------------------------------------------------
 with torch.no_grad():
     emb = model.encode(
         torch.from_numpy(X[mask_g3]).float().to(device),
@@ -53,7 +51,7 @@ z_mean, z_std = z_train.mean(), z_train.std()
 z_train_n = (z_train - z_mean) / z_std
 
 # ---- Linear head, encoder frozen --------------------------------------------
-head = nn.Sequential(nn.LayerNorm(D_emb), nn.Linear(D_emb, 1))
+head = nn.Sequential(nn.LayerNorm(cfg['D_emb']), nn.Linear(cfg['D_emb'], 1))
 opt = torch.optim.AdamW(head.parameters(), lr=1e-2) #changed from 1e-3
 
 head.train()
