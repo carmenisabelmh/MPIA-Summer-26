@@ -15,7 +15,7 @@ start_time = time.time()
 
 N_STEPS_PER_RESTART = 5000  # gradient steps
 BATCH_SIZE = 256  # spectra per batch
-LR = 3e-4  # AdamW learning rate
+LR = 2e-4  # AdamW learning rate
 WEIGHT_DECAY = 0.01  # AdamW weight decay
 BETAS = (0.9, 0.95)  # AdamW β₁, β₂
 GRAD_CLIP = 1.0  # gradient clip max norm
