@@ -29,8 +29,6 @@ f = data['flux'][np.ix_(valid_w, valid_spectrum)].T / (w**2) #Converts Flux valu
 # w = 469 -> amount of valid wavelengths
 # f = B x L = 42195, 469 -> B is the batch amount e.g. amount of spectrum with valid data,, L is the observation length e.g. amount of valid wavelength values
 
-# scale = np.nanmedian(np.abs(f), axis=1, keepdims=True).clip(1e-30) #identifies a scale of the median flux values
-# f_norm = np.arcsinh(f / scale) #normalises the flux values using the scale previously defined and an arcsin
 # Data Quality validity — (B, L): True where the detector pixel is good, set up for later validity masking, assesses if a pixel/data point is valid using the valid column of the data file
 dq = data['valid'][np.ix_(valid_w, valid_spectrum)].T  # (B, L)
 
@@ -39,7 +37,12 @@ valid_spectra = spec_std > MIN_STD
 f = f[valid_spectra]
 dq = dq[valid_spectra]
 
-f_norm = (f - np.mean(f, keepdims=True, axis=1)) / np.std(f, keepdims=True, axis=1)
+# arcsinh compression: scale by the median |flux| (robust to emission-line spikes,
+# unlike std), then arcsinh — linear near zero, logarithmic for large spikes.
+# Then z-score the compressed values so the bulk of pixels still have unit variance.
+scale = np.nanmedian(np.abs(f), axis=1, keepdims=True).clip(1e-30)
+f_arcsinh = np.arcsinh(f / scale)
+f_norm = (f_arcsinh - np.mean(f_arcsinh, keepdims=True, axis=1)) / np.std(f_arcsinh, keepdims=True, axis=1)
 
 
 
