@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Load the loss
-loss = np.load('loss_curve.npy')
+loss = np.load('loss_curve.npy') 
 
 # Plot loss
 
