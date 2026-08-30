@@ -57,8 +57,8 @@ def encode_tokens(model, flux, wave, valid, idx, device, bs=256):
 def eval_redshift(model, ds, cat, device, seeds, outdir=None):
     z_best = np.array(cat["z_best"], dtype=np.float32)
     grade = np.array(cat["grade"].filled(0) if hasattr(cat["grade"], "filled") else cat["grade"]).astype(int)
-    sel = np.where((grade == 3) & (z_best >= 0) & ds.valid.any(axis=1))[0]
-    print(f"[redshift] grade-3 galaxies with z>=0: N={len(sel):,}")
+    sel = np.where((grade == 3) & (z_best > 0) & ds.valid.any(axis=1))[0]
+    print(f"[redshift] grade-3 galaxies with z>0: N={len(sel):,}")
 
     tok, V = encode_tokens(model, ds.flux, ds.wavelength, ds.valid, sel, device)
     z = torch.from_numpy(z_best[sel])
